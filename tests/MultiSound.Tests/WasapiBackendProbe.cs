@@ -125,6 +125,7 @@ public class WasapiBackendProbe
         using var enumerator = new MMDeviceEnumerator();
         var masterDevice = enumerator.GetDevice(master);
         var otherDevice = enumerator.GetDevice(other.Id);
+        Console.WriteLine($"main: {masterDevice.FriendlyName}; copy: {otherDevice.FriendlyName}; copy volume support: {otherDevice.AudioEndpointVolume.HardwareSupport}");
         Console.WriteLine($"master volume {masterDevice.AudioEndpointVolume.MasterVolumeLevelScalar:F2} mute {masterDevice.AudioEndpointVolume.Mute}");
         Console.WriteLine($"master volume dB {masterDevice.AudioEndpointVolume.MasterVolumeLevel:F2} → x{Math.Pow(10, masterDevice.AudioEndpointVolume.MasterVolumeLevel / 20):F3}; hardware support {masterDevice.AudioEndpointVolume.HardwareSupport}");
         Console.WriteLine($"copy volume {otherDevice.AudioEndpointVolume.MasterVolumeLevelScalar:F2} mute {otherDevice.AudioEndpointVolume.Mute}");
@@ -158,6 +159,7 @@ public class WasapiBackendProbe
         using var enumerator = new MMDeviceEnumerator();
         var master = enumerator.GetDevice(catalog.GetDefaultId()!);
         var volume = master.AudioEndpointVolume;
+        Console.WriteLine($"main device: {master.FriendlyName}; volume support: {volume.HardwareSupport}");
         var original = volume.MasterVolumeLevelScalar;
         var amplitudes = new List<double>();
 
