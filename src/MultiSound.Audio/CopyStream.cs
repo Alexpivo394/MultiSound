@@ -15,8 +15,15 @@ public sealed class CopyStream : ISampleProvider
     public const double FadeMs = 5;
     public const double MaxOffsetMs = 500;
 
-    // Time since the last capture block counts toward the delay only up to this much; a longer gap is a stall.
-    private const double MaxSinceWriteMs = 30;
+    // Time since the last capture block counts toward the delay only up to the largest packet (at least this);
+    // a longer gap is a stall.
+    private const double MinSinceWriteCapMs = 30;
+
+    // Jitter allowance on top of the largest render request and capture packet.
+    private const double MarginSlackMs = 5;
+
+    private double _maxReadMs;
+    private double _maxWriteMs;
 
     private readonly int _inputRate;
     private readonly Func<double> _clockSeconds;
@@ -67,7 +74,14 @@ public sealed class CopyStream : ISampleProvider
         set => Volatile.Write(ref _volume, Math.Clamp(value, 0f, 1f));
     }
 
-    public double TargetMs => SafetyMs + OffsetMs;
+    /// <summary>
+    /// Margin kept on top of the user offset so a render request never finds the buffer short: at least
+    /// <see cref="SafetyMs"/>, and at least the largest render request plus the largest capture packet seen so far.
+    /// </summary>
+    /// <remarks>Only grows, and settles within the first blocks; a later rise would shift the copy's delay.</remarks>
+    public double MarginMs => Math.Max(SafetyMs, Volatile.Read(ref _maxReadMs) + Volatile.Read(ref _maxWriteMs) + MarginSlackMs);
+
+    public double TargetMs => MarginMs + OffsetMs;
 
     /// <summary>
     /// Current delay of the copy behind the capture: buffered audio plus the time since the last capture block,
@@ -80,7 +94,8 @@ public sealed class CopyStream : ISampleProvider
             var buffered = (_buffer.Count + _resampler.PendingFrames) * 1000.0 / _inputRate;
             var last = Volatile.Read(ref _lastWriteSeconds);
             if (double.IsNaN(last)) return buffered;
-            return buffered + Math.Clamp((_clockSeconds() - last) * 1000.0, 0, MaxSinceWriteMs);
+            var cap = Math.Max(MinSinceWriteCapMs, Volatile.Read(ref _maxWriteMs));
+            return buffered + Math.Clamp((_clockSeconds() - last) * 1000.0, 0, cap);
         }
     }
 
@@ -95,14 +110,29 @@ public sealed class CopyStream : ISampleProvider
             _antiAlias.Process(filtered);
             stereo = filtered;
         }
+        var writeMs = stereo.Length / 2 * 1000.0 / _inputRate;
+        if (writeMs > Volatile.Read(ref _maxWriteMs)) Volatile.Write(ref _maxWriteMs, writeMs);
         _buffer.Write(stereo);
         Volatile.Write(ref _lastWriteSeconds, _clockSeconds());
+        Interlocked.Increment(ref _writes);
     }
+
+    /// <summary>Diagnostics: render calls, smallest and largest request in frames, underflows, delay jumps, capture writes.</summary>
+    public (long Reads, int MinFrames, int MaxFrames, long Underflows, long Jumps, long Writes) Stats =>
+        (_reads, _minFrames, _maxFrames, _underflows, _jumps, _writes);
+
+    private long _reads, _underflows, _jumps, _writes;
+    private int _minFrames = int.MaxValue, _maxFrames;
 
     public int Read(float[] buffer, int offset, int count)
     {
         var channels = WaveFormat.Channels;
         var frames = count / channels;
+        _reads++;
+        _minFrames = Math.Min(_minFrames, frames);
+        _maxFrames = Math.Max(_maxFrames, frames);
+        var readMs = frames * 1000.0 / WaveFormat.SampleRate;
+        if (readMs > _maxReadMs) Volatile.Write(ref _maxReadMs, readMs);
         var target = TargetMs;
         var fill = BufferedMs;
 
@@ -125,6 +155,7 @@ public sealed class CopyStream : ISampleProvider
         {
             var errorFrames = ToFrames(Math.Abs(error));
             var fadeFrames = ToFrames(FadeMs);
+            _jumps++;
             if (error > 0) _buffer.Skip(errorFrames, fadeFrames);
             else _buffer.InsertSilence(errorFrames, fadeFrames);
             _controller.Reset();
@@ -141,6 +172,7 @@ public sealed class CopyStream : ISampleProvider
         {
             stereo[(produced * 2)..].Clear();
             _priming = true;
+            _underflows++;
         }
 
         var volume = Volume;

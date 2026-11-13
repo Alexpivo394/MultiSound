@@ -25,13 +25,13 @@ public sealed class WasapiBackend : IAudioBackend, IDisposable
     private sealed class LoopbackSource : ICaptureSource
     {
         private readonly MMDevice _device;
-        private readonly WasapiLoopbackCapture _capture;
+        private readonly LowLatencyLoopbackCapture _capture;
         private float[] _samples = [];
 
         public LoopbackSource(MMDevice device)
         {
             _device = device;
-            _capture = new WasapiLoopbackCapture(device);
+            _capture = new LowLatencyLoopbackCapture(device);
             var format = _capture.WaveFormat;
             if (!IsFloat32(format))
             {
@@ -98,4 +98,16 @@ public sealed class WasapiBackend : IAudioBackend, IDisposable
             _device.Dispose();
         }
     }
+}
+
+/// <summary>
+/// Loopback capture with a 20 ms buffer. NAudio's <see cref="WasapiLoopbackCapture"/> uses 100 ms and polls every
+/// 50 ms, so audio arrives in ~60 ms packets — more than a copy's safety margin, which starved the copies.
+/// </summary>
+internal sealed class LowLatencyLoopbackCapture(MMDevice device)
+    : WasapiCapture(device, useEventSync: false, audioBufferMillisecondsLength: BufferMs)
+{
+    private const int BufferMs = 20;
+
+    protected override AudioClientStreamFlags GetAudioClientStreamFlags() => AudioClientStreamFlags.Loopback;
 }

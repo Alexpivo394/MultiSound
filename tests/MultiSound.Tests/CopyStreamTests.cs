@@ -23,8 +23,8 @@ public class CopyStreamTests
 
         var means = sim.WindowMeans(3 * 3600);
 
-        await Assert.That(means.Min()).IsGreaterThanOrEqualTo(115);
-        await Assert.That(means.Max()).IsLessThanOrEqualTo(125);
+        await Assert.That(means.Min()).IsGreaterThanOrEqualTo(stream.TargetMs - 5);
+        await Assert.That(means.Max()).IsLessThanOrEqualTo(stream.TargetMs + 5);
     }
 
     [Test]
@@ -38,7 +38,26 @@ public class CopyStreamTests
         var means = sim.WindowMeans(1, block => lastSecond.AddRange(block));
 
         await Assert.That(Signals.Frequency(lastSecond.ToArray(), 2, 44100)).IsBetween(998.0, 1002.0);
-        await Assert.That(means.Single()).IsBetween(65.0, 75.0);
+        await Assert.That(means.Single()).IsBetween(stream.TargetMs - 5, stream.TargetMs + 5);
+    }
+
+    [Test]
+    [Arguments(0.0)]
+    [Arguments(30.0)]
+    public async Task LargeCaptureAndRenderBlocks_NoUnderflows(double offsetMs)
+    {
+        // Real loopback capture delivered ~22 ms packets and the device asked for 30 ms at a time.
+        var clock = new VirtualClock();
+        var stream = new CopyStream(48000, WaveFormat.CreateIeeeFloatWaveFormat(48000, 2), offsetMs, () => clock.Seconds);
+        var sim = new CopyStreamSimulator(stream, 48000, clock, writeBlockMs: 22, readBlockMs: 30)
+        {
+            Source = CopyStreamSimulator.Sine(440, 48000),
+        };
+        sim.Run(3);
+        var before = stream.Stats.Underflows;
+
+        sim.Run(30);
+        await Assert.That(stream.Stats.Underflows - before).IsEqualTo(0);
     }
 
     [Test]
@@ -86,7 +105,7 @@ public class CopyStreamTests
             }
         });
 
-        await Assert.That(means[^1]).IsBetween(145.0, 155.0);
+        await Assert.That(means[^1]).IsBetween(stream.TargetMs - 5, stream.TargetMs + 5);
         await Assert.That(longestSilence).IsLessThan(10);
     }
 
@@ -118,7 +137,7 @@ public class CopyStreamTests
         sim.Run(2);
         var means = sim.WindowMeans(1);
 
-        await Assert.That(means.Single()).IsBetween(115.0, 125.0);
+        await Assert.That(means.Single()).IsBetween(stream.TargetMs - 5, stream.TargetMs + 5);
     }
 
     [Test]

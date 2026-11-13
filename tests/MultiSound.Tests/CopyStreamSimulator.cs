@@ -3,7 +3,7 @@ using MultiSound.Audio;
 namespace MultiSound.Tests;
 
 /// <summary>Drives a <see cref="CopyStream"/> in virtual time: 10 ms capture blocks against 10 ms render blocks.</summary>
-internal sealed class CopyStreamSimulator(CopyStream stream, int inputRate, VirtualClock clock, double drift = 0)
+internal sealed class CopyStreamSimulator(CopyStream stream, int inputRate, VirtualClock clock, double drift = 0, double writeBlockMs = 10, double readBlockMs = 10)
 {
     private readonly int _outRate = stream.WaveFormat.SampleRate;
     private readonly int _channels = stream.WaveFormat.Channels;
@@ -23,11 +23,11 @@ internal sealed class CopyStreamSimulator(CopyStream stream, int inputRate, Virt
     public void Run(double seconds, Action<float[]>? onRead = null, Action<double>? onBeforeRead = null)
     {
         var end = Time + seconds;
-        var writeFrames = inputRate / 100;
-        var readSamples = _outRate / 100 * _channels;
+        var writeFrames = (int)(inputRate * writeBlockMs / 1000);
+        var readSamples = (int)(_outRate * readBlockMs / 1000) * _channels;
         var silence = new float[writeFrames * 2];
         var output = new float[readSamples];
-        var writeInterval = 0.01 / (1 + drift);
+        var writeInterval = writeBlockMs / 1000 / (1 + drift);
 
         while (true)
         {
@@ -49,7 +49,7 @@ internal sealed class CopyStreamSimulator(CopyStream stream, int inputRate, Virt
                 onBeforeRead?.Invoke(stream.BufferedMs);
                 stream.Read(output, 0, output.Length);
                 onRead?.Invoke(output);
-                _nextRead += 0.01;
+                _nextRead += readBlockMs / 1000;
             }
         }
         Time = end;
