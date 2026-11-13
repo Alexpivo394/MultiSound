@@ -1,0 +1,10 @@
+bin/
+obj/
+out/
+*.user
+.vs/
+.idea/
+
+# Рабочие документы — не в репозиторий
+docs/superpowers/
+.superpowers/
