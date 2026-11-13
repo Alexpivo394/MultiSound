@@ -22,11 +22,11 @@ public class SettingsStoreTests
     {
         var store = new SettingsStore(TempPath());
         var settings = new AppSettings { WindowLeft = 10, WindowTop = 20, WindowWidth = 600, WindowHeight = 500, TrayHintShown = true };
-        settings.Devices["{0.0.0.00000000}.{abc}"] = new DeviceSettings(Enabled: true, Volume: 0.8f, OffsetMs: 140);
+        settings.Devices["{0.0.0.00000000}.{abc}"] = new DeviceSettings(Enabled: true, OffsetMs: 140);
         store.Save(settings);
 
         var loaded = store.Load();
-        await Assert.That(loaded.Devices["{0.0.0.00000000}.{abc}"]).IsEqualTo(new DeviceSettings(true, 0.8f, 140));
+        await Assert.That(loaded.Devices["{0.0.0.00000000}.{abc}"]).IsEqualTo(new DeviceSettings(true, 140));
         await Assert.That(loaded.WindowLeft).IsEqualTo(10);
         await Assert.That(loaded.WindowHeight).IsEqualTo(500);
         await Assert.That(loaded.TrayHintShown).IsTrue();

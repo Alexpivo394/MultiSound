@@ -22,6 +22,7 @@ public sealed partial class MainViewModel : ObservableObject
     private readonly IAudioEngine _engine;
     private readonly IDeviceCatalog _catalog;
     private readonly IDefaultDeviceSwitcher _switcher;
+    private readonly IDeviceVolumes _volumes;
     private readonly SettingsStore _store;
     private readonly Action<Action> _dispatch;
     private readonly Timer _saveTimer;
@@ -30,6 +31,7 @@ public sealed partial class MainViewModel : ObservableObject
     private string? _originalDefaultId;
     private bool _refreshing;
     private bool _shutDown;
+    private bool _applyingOutsideVolume;
 
     [ObservableProperty] private bool _isRunning;
     [ObservableProperty] private bool _clicksEnabled;
@@ -37,11 +39,12 @@ public sealed partial class MainViewModel : ObservableObject
     [ObservableProperty] private string? _bluetoothLoadHint;
     [ObservableProperty] private string _trayStatus = "Остановлено";
 
-    public MainViewModel(IAudioEngine engine, IDeviceCatalog catalog, IDefaultDeviceSwitcher switcher, SettingsStore store, Action<Action> dispatch, TimeSpan? retryDelay = null)
+    public MainViewModel(IAudioEngine engine, IDeviceCatalog catalog, IDefaultDeviceSwitcher switcher, IDeviceVolumes volumes, SettingsStore store, Action<Action> dispatch, TimeSpan? retryDelay = null)
     {
         _engine = engine;
         _catalog = catalog;
         _switcher = switcher;
+        _volumes = volumes;
         _store = store;
         _dispatch = dispatch;
         _retryDelay = retryDelay ?? TimeSpan.FromSeconds(2);
@@ -50,6 +53,7 @@ public sealed partial class MainViewModel : ObservableObject
 
         _catalog.Changed += OnCatalogChanged;
         _engine.OutputFaulted += OnOutputFaulted;
+        _volumes.Changed += OnVolumeChangedOutside;
         Refresh();
     }
 
@@ -66,6 +70,7 @@ public sealed partial class MainViewModel : ObservableObject
         _shutDown = true;
         _catalog.Changed -= OnCatalogChanged;
         _engine.OutputFaulted -= OnOutputFaulted;
+        _volumes.Changed -= OnVolumeChangedOutside;
         _engine.Stop();
         _saveTimer.Dispose();
         SaveNow();
@@ -104,6 +109,24 @@ public sealed partial class MainViewModel : ObservableObject
     }
 
     private void OnCatalogChanged(object? sender, EventArgs e) => _dispatch(Refresh);
+
+    private void OnVolumeChangedOutside(string deviceId, float level) => _dispatch(() =>
+    {
+        if (Devices.FirstOrDefault(d => d.Id == deviceId) is not { } device) return;
+        var percent = ToPercent(level);
+        if (device.Volume == percent) return;
+        _applyingOutsideVolume = true;
+        try
+        {
+            device.Volume = percent;
+        }
+        finally
+        {
+            _applyingOutsideVolume = false;
+        }
+    });
+
+    private static int ToPercent(float level) => (int)Math.Round(level * 100);
 
     private void OnOutputFaulted(OutputFault fault) => _dispatch(() =>
     {
@@ -156,6 +179,7 @@ public sealed partial class MainViewModel : ObservableObject
                     }
                 }
                 device.IsPresent = true;
+                if (_volumes.Get(info.Id) is { } level) device.Volume = ToPercent(level);
                 device.IsMaster = info.Id == defaultId;
             }
 
@@ -183,7 +207,6 @@ public sealed partial class MainViewModel : ObservableObject
         if (Settings.Devices.TryGetValue(info.Id, out var saved))
         {
             device.IsEnabled = saved.Enabled;
-            device.Volume = (int)Math.Round(saved.Volume * 100);
             device.OffsetMs = (int)Math.Round(saved.OffsetMs);
         }
         device.PropertyChanged += OnDevicePropertyChanged;
@@ -196,7 +219,14 @@ public sealed partial class MainViewModel : ObservableObject
         if (e.PropertyName is not (nameof(DeviceViewModel.IsEnabled) or nameof(DeviceViewModel.Volume) or nameof(DeviceViewModel.OffsetMs)))
             return;
 
-        Settings.Devices[device.Id] = new DeviceSettings(device.IsEnabled, device.Volume / 100f, device.OffsetMs);
+        // Volume is the device's own Windows volume: Windows keeps it, nothing to save or to tell the engine.
+        if (e.PropertyName == nameof(DeviceViewModel.Volume))
+        {
+            if (!_applyingOutsideVolume) _volumes.Set(device.Id, device.Volume / 100f);
+            return;
+        }
+
+        Settings.Devices[device.Id] = new DeviceSettings(device.IsEnabled, device.OffsetMs);
         SaveSoon();
         if (e.PropertyName == nameof(DeviceViewModel.IsEnabled))
         {

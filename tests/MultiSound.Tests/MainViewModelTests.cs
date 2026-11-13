@@ -19,6 +19,7 @@ public class MainViewModelTests
         public FakeCatalog Catalog { get; } = new();
         public FakeEngine Engine { get; } = new();
         public FakeSwitcher Switcher { get; }
+        public FakeVolumes Volumes { get; } = new();
         public SettingsStore Store { get; } =
             new(Path.Combine(Path.GetTempPath(), "MultiSoundTests", Guid.NewGuid().ToString("N"), "settings.json"));
 
@@ -30,7 +31,7 @@ public class MainViewModelTests
         }
 
         public MainViewModel Create() =>
-            new(Engine, Catalog, Switcher, Store, action => { lock (this) action(); }, retryDelay: TimeSpan.FromMilliseconds(100));
+            new(Engine, Catalog, Switcher, Volumes, Store, action => { lock (this) action(); }, retryDelay: TimeSpan.FromMilliseconds(100));
 
         public DeviceViewModel Device(MainViewModel vm, string id) => vm.Devices.Single(d => d.Id == id);
     }
@@ -55,13 +56,13 @@ public class MainViewModelTests
     {
         var rig = new Rig("bt", Bt, Jack);
         var saved = new AppSettings();
-        saved.Devices["jack"] = new DeviceSettings(Enabled: true, Volume: 0.8f, OffsetMs: 190);
+        saved.Devices["jack"] = new DeviceSettings(Enabled: true, OffsetMs: 190);
         rig.Store.Save(saved);
 
         var vm = rig.Create();
         var jack = rig.Device(vm, "jack");
         await Assert.That(jack.IsEnabled).IsTrue();
-        await Assert.That(jack.Volume).IsEqualTo(80);
+        await Assert.That(jack.Volume).IsEqualTo(100); // no Windows level known: full
         await Assert.That(jack.OffsetMs).IsEqualTo(190);
         await Assert.That(rig.Device(vm, "bt").IsMaster).IsTrue();
     }
@@ -95,7 +96,42 @@ public class MainViewModelTests
         rig.Device(vm, "jack").NudgeOffsetCommand.Execute(10);
         rig.Device(vm, "jack").Volume = 50;
 
-        await Assert.That(rig.Engine.Outputs["jack"]).IsEqualTo(new OutputSettings(0.5f, 10));
+        await Assert.That(rig.Engine.Outputs["jack"]).IsEqualTo(new OutputSettings(1f, 10));
+        await Assert.That(rig.Volumes.Levels["jack"]).IsEqualTo(0.5f);
+    }
+
+    [Test]
+    public async Task Volume_ComesFromWindowsDeviceVolume()
+    {
+        var rig = new Rig("bt", Bt, Jack);
+        rig.Volumes.Levels["bt"] = 0.6f;
+        rig.Volumes.Levels["jack"] = 0.3f;
+
+        var vm = rig.Create();
+        await Assert.That(rig.Device(vm, "bt").Volume).IsEqualTo(60);
+        await Assert.That(rig.Device(vm, "jack").Volume).IsEqualTo(30);
+    }
+
+    [Test]
+    public async Task VolumeSlider_SetsWindowsVolume_ForMasterToo()
+    {
+        var rig = new Rig("bt", Bt, Jack);
+        rig.Volumes.Levels["bt"] = 0.6f;
+        var vm = rig.Create();
+
+        rig.Device(vm, "bt").Volume = 75;
+        await Assert.That(rig.Volumes.Levels["bt"]).IsEqualTo(0.75f);
+    }
+
+    [Test]
+    public async Task VolumeChangedOutside_SliderFollows()
+    {
+        var rig = new Rig("bt", Bt, Jack);
+        rig.Volumes.Levels["jack"] = 0.3f;
+        var vm = rig.Create();
+
+        rig.Volumes.ChangeOutside("jack", 0.9f);
+        await Assert.That(rig.Device(vm, "jack").Volume).IsEqualTo(90);
     }
 
     [Test]
@@ -126,7 +162,7 @@ public class MainViewModelTests
         await Assert.That(rig.Engine.Outputs.ContainsKey("jack")).IsFalse();
         await Assert.That(jack.IsPresent).IsFalse();
         vm.Shutdown();
-        await Assert.That(rig.Store.Load().Devices["jack"]).IsEqualTo(new DeviceSettings(true, 1f, 120));
+        await Assert.That(rig.Store.Load().Devices["jack"]).IsEqualTo(new DeviceSettings(true, 120));
     }
 
     [Test]

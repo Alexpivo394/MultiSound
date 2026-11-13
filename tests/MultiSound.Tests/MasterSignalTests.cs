@@ -52,14 +52,24 @@ public class MasterSignalTests
     }
 
     [Test]
+    public async Task Click_SharpAttack()
+    {
+        // The start is what you line up by ear, so it must rise to the peak within about a millisecond.
+        var signal = new MasterSignal(WaveFormat.CreateIeeeFloatWaveFormat(48000, 2)) { ClicksEnabled = true };
+        var stereo = Render(signal, 0.1);
+        var peakFrame = Enumerable.Range(0, stereo.Length / 2).MaxBy(f => Math.Abs(stereo[f * 2]));
+        await Assert.That(peakFrame).IsLessThanOrEqualTo(72);
+    }
+
+    [Test]
     public async Task Click_PeakAndLength()
     {
         var signal = new MasterSignal(WaveFormat.CreateIeeeFloatWaveFormat(48000, 2)) { ClicksEnabled = true };
         var stereo = Render(signal, 0.5);
 
         var nonZero = Enumerable.Range(0, stereo.Length / 2).Where(f => stereo[f * 2] != 0f).ToList();
-        await Assert.That(stereo.Max(Math.Abs)).IsBetween(0.49f, 0.51f);
-        await Assert.That(nonZero[^1] - nonZero[0] + 1).IsBetween(238, 242);
+        await Assert.That(stereo.Max(Math.Abs)).IsBetween(0.78f, 0.81f);
+        await Assert.That(nonZero[^1] - nonZero[0] + 1).IsBetween(718, 722);
         await Assert.That(Enumerable.Range(0, stereo.Length / 2).All(f => stereo[f * 2] == stereo[f * 2 + 1])).IsTrue();
     }
 }

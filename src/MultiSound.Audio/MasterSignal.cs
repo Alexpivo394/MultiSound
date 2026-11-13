@@ -9,9 +9,11 @@ namespace MultiSound.Audio;
 /// <remarks>Loopback capture picks the clicks up, so they reach every copy through the same path as the film.</remarks>
 public sealed class MasterSignal : ISampleProvider
 {
-    private const double ClickSeconds = 0.005;
+    // 15 ms is long enough to hear on weak speakers next to in-ear headphones; the 1 ms attack keeps the start sharp.
+    private const double ClickSeconds = 0.015;
+    private const double AttackSeconds = 0.001;
     private const double ClickFrequency = 1000;
-    private const float ClickAmplitude = 0.5f;
+    private const float ClickAmplitude = 0.8f;
 
     private readonly float[] _click;
     private readonly int _period;
@@ -24,14 +26,19 @@ public sealed class MasterSignal : ISampleProvider
         WaveFormat = format;
         _period = format.SampleRate;
 
+        // Envelope: a 1 ms rise to the peak, then an exponential decay that a short linear taper brings to zero.
         var length = (int)Math.Round(ClickSeconds * format.SampleRate);
-        var center = (length + 1) / 2.0;
+        var attack = (int)Math.Round(AttackSeconds * format.SampleRate);
+        var taper = length / 10;
         _click = new float[length];
-        for (var n = 1; n <= length; n++)
+        for (var n = 0; n < length; n++)
         {
-            var window = 0.5 * (1 - Math.Cos(2 * Math.PI * n / (length + 1)));
-            var tone = Math.Cos(2 * Math.PI * ClickFrequency * (n - center) / format.SampleRate);
-            _click[n - 1] = (float)(ClickAmplitude * window * tone);
+            var envelope = n < attack
+                ? Math.Pow(Math.Sin(Math.PI / 2 * (n + 1) / attack), 2)
+                : Math.Exp(-5.0 * (n - attack) / (length - attack));
+            if (n >= length - taper) envelope *= (length - n) / (double)taper;
+            var tone = Math.Cos(2 * Math.PI * ClickFrequency * (n + 1 - attack) / format.SampleRate);
+            _click[n] = (float)(ClickAmplitude * envelope * tone);
         }
     }
 

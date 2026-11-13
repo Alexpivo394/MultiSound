@@ -15,4 +15,15 @@ public class DeviceCatalogProbe
             Console.WriteLine($"{device.Kind,-10} {device.Name} | {device.Id}");
         await Assert.That(catalog.GetRenderDevices()).IsNotNull();
     }
+
+    [Test]
+    [Explicit]
+    public async Task PrintVolumes()
+    {
+        using var catalog = new DeviceCatalog();
+        using var volumes = new DeviceVolumes();
+        var levels = catalog.GetRenderDevices().Select(d => (d.Name, Level: volumes.Get(d.Id))).ToList();
+        foreach (var (name, level) in levels) Console.WriteLine($"{level:P0} {name}");
+        await Assert.That(levels.All(l => l.Level is not null)).IsTrue();
+    }
 }

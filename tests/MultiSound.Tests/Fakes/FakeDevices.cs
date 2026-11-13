@@ -71,3 +71,19 @@ internal sealed class FakeEngine : IAudioEngine
 
     public void Dispose() { }
 }
+
+internal sealed class FakeVolumes : IDeviceVolumes
+{
+    public Dictionary<string, float> Levels { get; } = new();
+
+    public event Action<string, float>? Changed;
+
+    public float? Get(string deviceId) => Levels.TryGetValue(deviceId, out var level) ? level : null;
+    public void Set(string deviceId, float level) => Levels[deviceId] = level;
+    public void ChangeOutside(string deviceId, float level)
+    {
+        Levels[deviceId] = level;
+        Changed?.Invoke(deviceId, level);
+    }
+    public void Dispose() { }
+}

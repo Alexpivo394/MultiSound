@@ -21,6 +21,7 @@ public partial class App : Application
     private EventWaitHandle? _showEvent;
     private RegisteredWaitHandle? _showWait;
     private DeviceCatalog? _catalog;
+    private DeviceVolumes? _volumes;
     private WasapiBackend? _backend;
     private AudioEngine? _engine;
     private MainViewModel? _viewModel;
@@ -46,7 +47,8 @@ public partial class App : Application
         _catalog = new DeviceCatalog();
         _backend = new WasapiBackend();
         _engine = new AudioEngine(_backend);
-        _viewModel = new MainViewModel(_engine, _catalog, new DefaultDeviceSwitcher(), new SettingsStore(SettingsStore.DefaultPath),
+        _volumes = new DeviceVolumes();
+        _viewModel = new MainViewModel(_engine, _catalog, new DefaultDeviceSwitcher(), _volumes, new SettingsStore(SettingsStore.DefaultPath),
             action => Dispatcher.BeginInvoke(action));
 
         _window = new MainWindow(_viewModel);
@@ -70,6 +72,7 @@ public partial class App : Application
         }
         _engine?.Dispose();
         _catalog?.Dispose();
+        _volumes?.Dispose();
         _backend?.Dispose();
         _showWait?.Unregister(null);
         _showEvent?.Dispose();

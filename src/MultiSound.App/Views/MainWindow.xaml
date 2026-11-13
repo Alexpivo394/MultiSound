@@ -68,11 +68,7 @@
                             </toad:Card.TrailingContent>
 
                             <StackPanel Margin="0,8,0,0">
-                                <TextBlock Text="Громкость: системная" Foreground="{DynamicResource Toad.Brush.TextDimmed}"
-                                           Visibility="{Binding IsMaster, Converter={StaticResource Visible}}" />
-
-                                <Grid Visibility="{Binding IsCopy, Converter={StaticResource Visible}}"
-                                      IsEnabled="{Binding IsEnabled}">
+                                <Grid>
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="80" />
                                         <ColumnDefinition Width="*" />
@@ -84,20 +80,25 @@
                                         <RowDefinition Height="Auto" />
                                     </Grid.RowDefinitions>
 
-                                    <TextBlock Grid.Row="0" Grid.Column="0" Text="Громкость" VerticalAlignment="Center" />
+                                    <TextBlock Grid.Row="0" Grid.Column="0" Text="Громкость" VerticalAlignment="Center"
+                                               ToolTip="Громкость этого устройства в Windows" />
                                     <Slider Grid.Row="0" Grid.Column="1" Minimum="0" Maximum="100" TickFrequency="1"
                                             IsSnapToTickEnabled="True" VerticalAlignment="Center"
                                             Value="{Binding Volume}" />
                                     <TextBlock Grid.Row="0" Grid.Column="2" VerticalAlignment="Center" TextAlignment="Right"
                                                Text="{Binding Volume, StringFormat={}{0} %}" />
 
-                                    <TextBlock Grid.Row="1" Grid.Column="0" Text="Сдвиг" VerticalAlignment="Center" Margin="0,8,0,0" />
+                                    <TextBlock Grid.Row="1" Grid.Column="0" Text="Сдвиг" VerticalAlignment="Center" Margin="0,8,0,0"
+                                               Visibility="{Binding IsCopy, Converter={StaticResource Visible}}" IsEnabled="{Binding IsEnabled}" />
                                     <Slider Grid.Row="1" Grid.Column="1" Minimum="0" Maximum="500" TickFrequency="1"
                                             IsSnapToTickEnabled="True" VerticalAlignment="Center" Margin="0,8,0,0"
+                                            Visibility="{Binding IsCopy, Converter={StaticResource Visible}}" IsEnabled="{Binding IsEnabled}"
                                             Value="{Binding OffsetMs}" />
                                     <TextBlock Grid.Row="1" Grid.Column="2" VerticalAlignment="Center" TextAlignment="Right" Margin="0,8,0,0"
+                                               Visibility="{Binding IsCopy, Converter={StaticResource Visible}}" IsEnabled="{Binding IsEnabled}"
                                                Text="{Binding OffsetMs, StringFormat={}{0} мс}" />
-                                    <StackPanel Grid.Row="1" Grid.Column="3" Orientation="Horizontal" Margin="8,8,0,0">
+                                    <StackPanel Grid.Row="1" Grid.Column="3" Orientation="Horizontal" Margin="8,8,0,0"
+                                                Visibility="{Binding IsCopy, Converter={StaticResource Visible}}" IsEnabled="{Binding IsEnabled}">
                                         <toad:Button Variant="Subtle" Content="−10" ToolTip="Раньше на 10 мс"
                                                      Command="{Binding NudgeOffsetCommand}" CommandParameter="{StaticResource Minus10}" />
                                         <toad:Button Variant="Subtle" Content="+10" ToolTip="Позже на 10 мс" Margin="4,0,0,0"

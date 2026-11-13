@@ -24,7 +24,7 @@ public sealed partial class DeviceViewModel : ObservableObject
     [NotifyPropertyChangedFor(nameof(IsCopy))]
     private bool _isMaster;
 
-    /// <summary>Copy volume, 0–100 %.</summary>
+    /// <summary>The device's Windows volume, 0–100 %.</summary>
     [ObservableProperty] private int _volume = 100;
 
     /// <summary>Copy offset, 0–500 ms.</summary>
@@ -44,7 +44,8 @@ public sealed partial class DeviceViewModel : ObservableObject
 
     public bool IsCopy => !IsMaster;
 
-    public OutputSettings ToOutputSettings() => new(Volume / 100f, OffsetMs);
+    /// <summary>Copies play at full level; <see cref="Volume"/> is the device's Windows volume.</summary>
+    public OutputSettings ToOutputSettings() => new(1f, OffsetMs);
 
     partial void OnVolumeChanged(int value)
     {
