@@ -1,0 +1,30 @@
+name: Build
+
+on:
+  push:
+    branches:
+      - '**'
+  pull_request:
+
+jobs:
+  windows:
+    name: windows-2025
+    runs-on: windows-2025
+    steps:
+
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Cache packages
+        uses: actions/cache@v5
+        with:
+          path: ~/.nuget/packages
+          key: ${{ runner.os }}-nuget-${{ hashFiles('**/*.csproj', 'Directory.Build.props') }}
+          restore-keys: ${{ runner.os }}-nuget-
+
+      - name: Build
+        run: dotnet build MultiSound.slnx -c Release
+
+      # Checks on real audio devices are [Explicit] and do not run here.
+      - name: Test
+        run: dotnet run --project tests/MultiSound.Tests -c Release --no-build
