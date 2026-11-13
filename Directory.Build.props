@@ -4,6 +4,7 @@
         <Nullable>enable</Nullable>
         <LangVersion>latest</LangVersion>
         <ImplicitUsings>enable</ImplicitUsings>
-        <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+        <!-- Symbols inside the assemblies, so the single-file exe has no loose .pdb files next to it. -->
+        <DebugType Condition="'$(Configuration)' == 'Release'">embedded</DebugType>
     </PropertyGroup>
 </Project>

@@ -6,6 +6,15 @@
         <!-- WPF and WinForms share type names (Application, Button); keep usings explicit. -->
         <ImplicitUsings>disable</ImplicitUsings>
         <RootNamespace>MultiSound.App</RootNamespace>
+        <AssemblyName>MultiSound</AssemblyName>
+    </PropertyGroup>
+    <!-- Only for dotnet publish: the tests reference this project, and a self-contained exe cannot be referenced. -->
+    <PropertyGroup Condition="'$(_IsPublishing)' == 'true'">
+        <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+        <SelfContained>true</SelfContained>
+        <PublishSingleFile>true</PublishSingleFile>
+        <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+        <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
     </PropertyGroup>
     <ItemGroup>
         <PackageReference Include="Alexpivo394.ToadDesign" Version="1.0.0" />
