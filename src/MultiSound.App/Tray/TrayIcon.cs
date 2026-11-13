@@ -6,7 +6,7 @@ using ToadDesign;
 
 namespace MultiSound.App.Tray;
 
-/// <summary>The notification-area icon: shows the window, starts and stops playback, exits the app.</summary>
+/// <summary>The notification-area icon: a left click shows the window, a right click opens <see cref="TrayMenu"/>.</summary>
 internal sealed class TrayIcon : IDisposable
 {
     private const int MaxTooltipLength = 63;
@@ -14,24 +14,20 @@ internal sealed class TrayIcon : IDisposable
     private readonly MainViewModel _viewModel;
     private readonly System.Drawing.Icon _icon;
     private readonly NotifyIcon _notifyIcon;
-    private readonly ToolStripMenuItem _toggleItem;
+    private readonly TrayMenu _menu;
 
     public TrayIcon(MainViewModel viewModel, Action show, Action exit)
     {
         _viewModel = viewModel;
         _icon = IconRenderer.Render(Symbol.Headphones, 32);
 
-        _toggleItem = new ToolStripMenuItem("", null, (_, _) => _viewModel.ToggleRunCommand.Execute(null));
-        var menu = new ContextMenuStrip();
-        menu.Items.Add(new ToolStripMenuItem("Открыть", null, (_, _) => show()) { Font = new System.Drawing.Font(menu.Font, System.Drawing.FontStyle.Bold) });
-        menu.Items.Add(_toggleItem);
-        menu.Items.Add(new ToolStripSeparator());
-        menu.Items.Add(new ToolStripMenuItem("Выход", null, (_, _) => exit()));
+        _menu = new TrayMenu(viewModel, show, exit);
 
-        _notifyIcon = new NotifyIcon { Icon = _icon, ContextMenuStrip = menu, Visible = true };
-        _notifyIcon.MouseClick += (_, e) =>
+        _notifyIcon = new NotifyIcon { Icon = _icon, Visible = true };
+        _notifyIcon.MouseUp += (_, e) =>
         {
             if (e.Button == MouseButtons.Left) show();
+            else if (e.Button == MouseButtons.Right) _menu.Open(Cursor.Position);
         };
 
         _viewModel.PropertyChanged += OnViewModelChanged;
@@ -50,6 +46,7 @@ internal sealed class TrayIcon : IDisposable
     public void Dispose()
     {
         _viewModel.PropertyChanged -= OnViewModelChanged;
+        _menu.Close();
         _notifyIcon.Visible = false;
         _notifyIcon.Dispose();
         IconRenderer.Destroy(_icon);
@@ -64,6 +61,5 @@ internal sealed class TrayIcon : IDisposable
     {
         var text = $"MultiSound — {_viewModel.TrayStatus}";
         _notifyIcon.Text = text.Length > MaxTooltipLength ? text[..MaxTooltipLength] : text;
-        _toggleItem.Text = _viewModel.IsRunning ? "Остановить" : "Запустить";
     }
 }
