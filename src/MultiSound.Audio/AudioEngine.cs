@@ -98,7 +98,8 @@ public sealed class AudioEngine : IAudioEngine
                 MasterId = masterId;
                 return;
             }
-            if (masterId == MasterId) return;
+            // The same main device again only matters when its capture was lost (it disconnected and came back).
+            if (masterId == MasterId && _capture is not null) return;
 
             StopMaster();
             RemoveActive(masterId);
@@ -174,21 +175,18 @@ public sealed class AudioEngine : IAudioEngine
 
     private void StartCapture(string masterId)
     {
-        var previousRate = _capture?.Format.SampleRate;
         var capture = _backend.CreateLoopback(masterId);
         capture.Captured += OnCaptured;
         capture.Stopped += error => OnCaptureStopped(capture, error);
         _capture = capture;
         capture.Start();
 
-        // A copy's input rate is fixed when it is created, so copies follow a capture whose rate changed.
-        if (previousRate is not null && previousRate != capture.Format.SampleRate)
+        // A copy's input rate is fixed when it is created; rebuild copies made for a capture of another rate.
+        foreach (var (id, output) in _active)
         {
-            foreach (var id in _active.Keys)
-            {
-                RemoveActive(id);
-                if (_wanted.TryGetValue(id, out var settings)) StartOutput(id, settings);
-            }
+            if (output.Stream.InputSampleRate == capture.Format.SampleRate) continue;
+            RemoveActive(id);
+            if (_wanted.TryGetValue(id, out var settings)) StartOutput(id, settings);
         }
     }
 
@@ -283,7 +281,8 @@ public sealed class AudioEngine : IAudioEngine
                 }
             }
 
-            StopCore();
+            // The main device is most likely gone (a Bluetooth headset dropped). Copies stay up and wait in silence;
+            // the next ChangeMaster — to the new Windows default, or to this device once it is back — restores capture.
             OutputFaulted?.Invoke(new OutputFault(masterId, error.Message));
         }
     }

@@ -1,8 +1,10 @@
 using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Linq;
 using System.Threading;
+using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using MultiSound.App.Settings;
@@ -23,8 +25,11 @@ public sealed partial class MainViewModel : ObservableObject
     private readonly SettingsStore _store;
     private readonly Action<Action> _dispatch;
     private readonly Timer _saveTimer;
+    private readonly TimeSpan _retryDelay;
+    private readonly HashSet<string> _retried = new();
     private string? _originalDefaultId;
     private bool _refreshing;
+    private bool _shutDown;
 
     [ObservableProperty] private bool _isRunning;
     [ObservableProperty] private bool _clicksEnabled;
@@ -32,13 +37,14 @@ public sealed partial class MainViewModel : ObservableObject
     [ObservableProperty] private string? _bluetoothLoadHint;
     [ObservableProperty] private string _trayStatus = "Остановлено";
 
-    public MainViewModel(IAudioEngine engine, IDeviceCatalog catalog, IDefaultDeviceSwitcher switcher, SettingsStore store, Action<Action> dispatch)
+    public MainViewModel(IAudioEngine engine, IDeviceCatalog catalog, IDefaultDeviceSwitcher switcher, SettingsStore store, Action<Action> dispatch, TimeSpan? retryDelay = null)
     {
         _engine = engine;
         _catalog = catalog;
         _switcher = switcher;
         _store = store;
         _dispatch = dispatch;
+        _retryDelay = retryDelay ?? TimeSpan.FromSeconds(2);
         Settings = store.Load();
         _saveTimer = new Timer(_ => _dispatch(SaveNow));
 
@@ -57,6 +63,7 @@ public sealed partial class MainViewModel : ObservableObject
     /// <summary>Stops playback, saves, and gives back the main device the user had before.</summary>
     public void Shutdown()
     {
+        _shutDown = true;
         _catalog.Changed -= OnCatalogChanged;
         _engine.OutputFaulted -= OnOutputFaulted;
         _engine.Stop();
@@ -100,9 +107,27 @@ public sealed partial class MainViewModel : ObservableObject
 
     private void OnOutputFaulted(OutputFault fault) => _dispatch(() =>
     {
-        if (Devices.FirstOrDefault(d => d.Id == fault.DeviceId) is { } device) device.Error = fault.Message;
+        if (Devices.FirstOrDefault(d => d.Id == fault.DeviceId) is { } device)
+        {
+            device.Error = fault.Message;
+            ScheduleRetry(device);
+        }
         UpdateStatus();
     });
+
+    // A Bluetooth endpoint can report Active a moment before it can be opened, so a copy that failed on a device
+    // still present gets one more try; the next reconnect or toggle allows another.
+    private void ScheduleRetry(DeviceViewModel device)
+    {
+        if (device.IsMaster || !device.IsPresent || !device.IsEnabled || !_retried.Add(device.Id)) return;
+        Task.Delay(_retryDelay).ContinueWith(_ => _dispatch(() =>
+        {
+            if (_shutDown || !_engine.IsRunning || device.IsMaster || !device.IsPresent || !device.IsEnabled) return;
+            device.Error = null;
+            SyncDevice(device);
+            UpdateStatus();
+        }), TaskScheduler.Default);
+    }
 
     private void Refresh()
     {
@@ -124,7 +149,11 @@ public sealed partial class MainViewModel : ObservableObject
                 {
                     device.Name = info.Name;
                     device.Kind = info.Kind;
-                    if (!device.IsPresent) device.Error = null;
+                    if (!device.IsPresent)
+                    {
+                        device.Error = null;
+                        _retried.Remove(device.Id);
+                    }
                 }
                 device.IsPresent = true;
                 device.IsMaster = info.Id == defaultId;
@@ -136,7 +165,8 @@ public sealed partial class MainViewModel : ObservableObject
                 device.IsMaster = false;
             }
 
-            if (_engine.IsRunning && defaultId is not null && _engine.MasterId != defaultId)
+            // Also when the default is unchanged: the engine recaptures a main device that dropped and came back.
+            if (_engine.IsRunning && defaultId is not null)
                 _engine.ChangeMaster(defaultId);
         }
         finally
@@ -168,7 +198,11 @@ public sealed partial class MainViewModel : ObservableObject
 
         Settings.Devices[device.Id] = new DeviceSettings(device.IsEnabled, device.Volume / 100f, device.OffsetMs);
         SaveSoon();
-        if (e.PropertyName == nameof(DeviceViewModel.IsEnabled)) device.Error = null;
+        if (e.PropertyName == nameof(DeviceViewModel.IsEnabled))
+        {
+            device.Error = null;
+            _retried.Remove(device.Id);
+        }
         SyncDevice(device);
         UpdateStatus();
     }

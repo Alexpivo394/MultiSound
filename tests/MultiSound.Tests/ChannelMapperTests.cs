@@ -28,8 +28,43 @@ public class ChannelMapperTests
     {
         var dst = new float[2];
         ChannelMapper.ToStereo([0.2f, 0.4f, 0.5f, 1f, 0f, 0f], 6, dst);
-        await Assert.That(dst[0]).IsEqualTo(0.2f + 0.7071f * 0.5f).Within(1e-4f);
-        await Assert.That(dst[1]).IsEqualTo(0.4f + 0.7071f * 0.5f).Within(1e-4f);
+        await Assert.That(dst[0]).IsEqualTo((0.2f + 0.7071f * 0.5f) * ChannelMapper.SurroundHeadroom).Within(1e-4f);
+        await Assert.That(dst[1]).IsEqualTo((0.4f + 0.7071f * 0.5f) * ChannelMapper.SurroundHeadroom).Within(1e-4f);
+    }
+
+    [Test]
+    public async Task Surround51_ToStereo_KeepsSurrounds()
+    {
+        var dst = new float[2];
+        ChannelMapper.ToStereo([0f, 0f, 0f, 0f, 0.4f, 0f], 6, dst);
+        await Assert.That(dst[0]).IsEqualTo(0.7071f * 0.4f * ChannelMapper.SurroundHeadroom).Within(1e-4f);
+        await Assert.That(dst[1]).IsEqualTo(0f);
+    }
+
+    [Test]
+    public async Task Surround71_ToStereo_KeepsSideAndBack()
+    {
+        var dst = new float[2];
+        ChannelMapper.ToStereo([0f, 0f, 0f, 0f, 0f, 0.3f, 0f, 0.3f], 8, dst);
+        await Assert.That(dst[0]).IsEqualTo(0f);
+        await Assert.That(dst[1]).IsEqualTo(2 * 0.7071f * 0.3f * ChannelMapper.SurroundHeadroom).Within(1e-4f);
+    }
+
+    [Test]
+    public async Task Quad_ToStereo_RearIsNotCenter()
+    {
+        var dst = new float[2];
+        ChannelMapper.ToStereo([0f, 0f, 0.4f, 0f], 4, dst);
+        await Assert.That(dst[0]).IsEqualTo(0.7071f * 0.4f * ChannelMapper.SurroundHeadroom).Within(1e-4f);
+        await Assert.That(dst[1]).IsEqualTo(0f);
+    }
+
+    [Test]
+    public async Task Surround_FullScale_DoesNotClip()
+    {
+        var dst = new float[2];
+        ChannelMapper.ToStereo(Enumerable.Repeat(1f, 8).ToArray(), 8, dst);
+        await Assert.That(dst.All(v => v <= 1f)).IsTrue();
     }
 
     [Test]

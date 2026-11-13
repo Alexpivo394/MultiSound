@@ -28,6 +28,11 @@ public sealed class CopyStream : ISampleProvider
     private float _volume = 1f;
     private double _lastWriteSeconds = double.NaN;
     private bool _priming = true;
+    private readonly LowPassFilter? _antiAlias;
+    private float[] _filtered = [];
+
+    // Fraction of the output rate kept by the anti-alias filter; just under its Nyquist frequency.
+    private const double AntiAliasCutoff = 0.45;
 
     /// <param name="inputSampleRate">Sample rate of the captured stereo stream.</param>
     /// <param name="outputFormat">IEEE float format of the device.</param>
@@ -40,9 +45,15 @@ public sealed class CopyStream : ISampleProvider
         OffsetMs = offsetMs;
         _clockSeconds = clockSeconds ?? (() => Stopwatch.GetTimestamp() / (double)Stopwatch.Frequency);
         _buffer = new DelayBuffer(inputSampleRate * 2);
+
+        // Going to a lower rate (44.1 kHz, a 16 kHz hands-free headset) needs a low-pass first, or highs fold back as noise.
+        if (outputFormat.SampleRate < inputSampleRate * 0.99)
+            _antiAlias = new LowPassFilter(AntiAliasCutoff * outputFormat.SampleRate / inputSampleRate);
     }
 
     public WaveFormat WaveFormat { get; }
+
+    public int InputSampleRate => _inputRate;
 
     public double OffsetMs
     {
@@ -75,6 +86,15 @@ public sealed class CopyStream : ISampleProvider
 
     public void Write(ReadOnlySpan<float> stereo)
     {
+        if (_antiAlias is not null)
+        {
+            // The capture block is shared by every copy, so filter a private copy of it.
+            if (_filtered.Length < stereo.Length) _filtered = new float[stereo.Length];
+            var filtered = _filtered.AsSpan(0, stereo.Length);
+            stereo.CopyTo(filtered);
+            _antiAlias.Process(filtered);
+            stereo = filtered;
+        }
         _buffer.Write(stereo);
         Volatile.Write(ref _lastWriteSeconds, _clockSeconds());
     }

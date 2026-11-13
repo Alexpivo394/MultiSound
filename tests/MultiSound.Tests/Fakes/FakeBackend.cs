@@ -8,6 +8,7 @@ internal sealed class FakeBackend : IAudioBackend
     public List<FakeCapture> Captures { get; } = [];
     public List<FakeRender> Renders { get; } = [];
     public HashSet<string> FailingDevices { get; } = [];
+    public Dictionary<string, int> CaptureRates { get; } = new();
 
     public FakeCapture LastCapture => Captures[^1];
 
@@ -15,7 +16,7 @@ internal sealed class FakeBackend : IAudioBackend
 
     public ICaptureSource CreateLoopback(string deviceId)
     {
-        var capture = new FakeCapture(deviceId);
+        var capture = new FakeCapture(deviceId, CaptureRates.GetValueOrDefault(deviceId, 48000));
         Captures.Add(capture);
         return capture;
     }
@@ -29,12 +30,12 @@ internal sealed class FakeBackend : IAudioBackend
     }
 }
 
-internal sealed class FakeCapture(string deviceId) : ICaptureSource
+internal sealed class FakeCapture(string deviceId, int sampleRate = 48000) : ICaptureSource
 {
     public string DeviceId { get; } = deviceId;
     public bool Started { get; private set; }
     public bool Disposed { get; private set; }
-    public WaveFormat Format { get; } = WaveFormat.CreateIeeeFloatWaveFormat(48000, 2);
+    public WaveFormat Format { get; } = WaveFormat.CreateIeeeFloatWaveFormat(sampleRate, 2);
 
     public event Action<ReadOnlyMemory<float>>? Captured;
     public event Action<Exception?>? Stopped;

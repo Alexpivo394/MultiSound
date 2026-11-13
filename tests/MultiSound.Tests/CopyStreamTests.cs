@@ -42,6 +42,32 @@ public class CopyStreamTests
     }
 
     [Test]
+    public async Task Downsampling_ToHandsFree_NoAliasing()
+    {
+        // 12 kHz cannot exist at 16 kHz; without a low-pass it folds down to an audible 4 kHz tone.
+        var (_, sim) = Setup(48000, 16000, 1, offsetMs: 0);
+        sim.Source = CopyStreamSimulator.Sine(12000, 48000);
+        sim.Run(2);
+
+        var output = new List<float>();
+        sim.Run(1, block => output.AddRange(block));
+        var rms = Math.Sqrt(output.Average(v => v * v));
+        await Assert.That(rms).IsLessThan(0.05);
+    }
+
+    [Test]
+    public async Task Downsampling_KeepsPassband()
+    {
+        var (_, sim) = Setup(48000, 16000, 1, offsetMs: 0);
+        sim.Source = CopyStreamSimulator.Sine(1000, 48000);
+        sim.Run(2);
+
+        var output = new List<float>();
+        sim.Run(1, block => output.AddRange(block));
+        await Assert.That(output.Max(Math.Abs)).IsBetween(0.9f, 1.05f);
+    }
+
+    [Test]
     public async Task OffsetChange_Small_ConvergesSmoothly()
     {
         var (stream, sim) = Setup(48000, 48000, 2, offsetMs: 100);

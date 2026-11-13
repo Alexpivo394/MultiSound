@@ -175,8 +175,64 @@ public class AudioEngineTests
         backend.LastCapture.Fail(new InvalidOperationException("dead"));
         await Task.Delay(100);
         await Assert.That(backend.Captures.Count).IsEqualTo(2);
-        await Assert.That(engine.IsRunning).IsFalse();
         await Assert.That(faults.Single().DeviceId).IsEqualTo(Master);
+    }
+
+    [Test]
+    public async Task MasterLost_CopiesSurviveUntilNewMaster()
+    {
+        var backend = new FakeBackend();
+        using var engine = new AudioEngine(backend);
+        engine.Start(Master);
+        engine.SetOutput("b", Default);
+        var b = backend.Live("b").Single();
+
+        // The main Bluetooth headset drops: capture fails, and its restart fails too.
+        backend.LastCapture.Fail(new InvalidOperationException("device invalidated"));
+        await Task.Delay(100);
+        backend.LastCapture.Fail(new InvalidOperationException("device invalidated"));
+        await Task.Delay(100);
+
+        await Assert.That(engine.IsRunning).IsTrue();
+        await Assert.That(b.Disposed).IsFalse();
+
+        // Windows picks a new default, the view model follows it.
+        engine.ChangeMaster("a");
+        await Assert.That(backend.LastCapture.DeviceId).IsEqualTo("a");
+        await Assert.That(backend.LastCapture.Disposed).IsFalse();
+        await Assert.That(engine.ActiveOutputs).IsEquivalentTo(new[] { "b" });
+    }
+
+    [Test]
+    public async Task MasterLost_SameMasterReturns_CaptureRestarts()
+    {
+        var backend = new FakeBackend();
+        using var engine = new AudioEngine(backend);
+        engine.Start(Master);
+        backend.LastCapture.Fail(new InvalidOperationException("gone"));
+        await Task.Delay(100);
+        backend.LastCapture.Fail(new InvalidOperationException("gone"));
+        await Task.Delay(100);
+        var before = backend.Captures.Count;
+
+        engine.ChangeMaster(Master);
+        await Assert.That(backend.Captures.Count).IsEqualTo(before + 1);
+        await Assert.That(backend.LastCapture.Disposed).IsFalse();
+    }
+
+    [Test]
+    public async Task MasterChanged_DifferentRate_CopiesFollowNewRate()
+    {
+        var backend = new FakeBackend();
+        backend.CaptureRates["a"] = 44100;
+        using var engine = new AudioEngine(backend);
+        engine.Start(Master);
+        engine.SetOutput("b", Default);
+
+        engine.ChangeMaster("a");
+
+        var stream = (CopyStream)backend.Live("b").Single().Source!;
+        await Assert.That(stream.InputSampleRate).IsEqualTo(44100);
     }
 
     [Test]

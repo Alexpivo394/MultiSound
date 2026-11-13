@@ -46,7 +46,13 @@ internal sealed class FakeEngine : IAudioEngine
         MasterId = masterId;
     }
 
-    public void ChangeMaster(string masterId) => MasterId = masterId;
+    public List<string> ChangeMasterCalls { get; } = [];
+
+    public void ChangeMaster(string masterId)
+    {
+        ChangeMasterCalls.Add(masterId);
+        MasterId = masterId;
+    }
     public void Stop() => IsRunning = false;
 
     public void SetOutput(string deviceId, OutputSettings settings) => Outputs[deviceId] = settings;

@@ -29,7 +29,8 @@ public class MainViewModelTests
             Catalog.DefaultId = defaultId;
         }
 
-        public MainViewModel Create() => new(Engine, Catalog, Switcher, Store, action => action());
+        public MainViewModel Create() =>
+            new(Engine, Catalog, Switcher, Store, action => { lock (this) action(); }, retryDelay: TimeSpan.FromMilliseconds(100));
 
         public DeviceViewModel Device(MainViewModel vm, string id) => vm.Devices.Single(d => d.Id == id);
     }
@@ -164,6 +165,18 @@ public class MainViewModelTests
     }
 
     [Test]
+    public async Task MasterReturns_SameDefault_EngineAskedToRecapture()
+    {
+        // The main headset dropped (engine lost capture) and came back as the default again.
+        var rig = new Rig("bt", Bt, Jack);
+        var vm = rig.Create();
+        vm.ToggleRunCommand.Execute(null);
+
+        rig.Catalog.RaiseChanged();
+        await Assert.That(rig.Engine.ChangeMasterCalls).Contains("bt");
+    }
+
+    [Test]
     public async Task MakeMaster_ThenShutdown_RestoresOriginal()
     {
         var rig = new Rig("jack", Bt, Jack);
@@ -209,6 +222,25 @@ public class MainViewModelTests
 
         await Assert.That(rig.Device(vm, "jack").Error).IsEqualTo("Устройство отключено");
         await Assert.That(vm.TrayStatus).IsEqualTo("Играет на 1 устройстве");
+    }
+
+    [Test]
+    public async Task Fault_OnPresentDevice_RetriedOnce()
+    {
+        // A Bluetooth endpoint can report Active before it can actually be opened.
+        var rig = new Rig("bt", Bt, Pods);
+        var vm = rig.Create();
+        rig.Device(vm, "pods").IsEnabled = true;
+        vm.ToggleRunCommand.Execute(null);
+
+        rig.Engine.Fault("pods", "not ready");
+        await Task.Delay(400);
+        await Assert.That(rig.Engine.Outputs.ContainsKey("pods")).IsTrue();
+
+        rig.Engine.Fault("pods", "still broken");
+        await Task.Delay(400);
+        await Assert.That(rig.Engine.Outputs.ContainsKey("pods")).IsFalse();
+        await Assert.That(rig.Device(vm, "pods").Error).IsEqualTo("still broken");
     }
 
     [Test]
