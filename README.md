@@ -47,3 +47,4 @@ dotnet publish src/MultiSound.App -c Release -o out
 | `src/MultiSound.Audio` | Звуковой движок: захват, задержка и подстройка скорости копий, устройства |
 | `src/MultiSound.App` | Окно на [ToadDesign](https://github.com/Alexpivo394/ToadDesign) и значок в трее |
 | `tests/MultiSound.Tests` | Тесты на TUnit; проверки на реальных устройствах помечены `[Explicit]` |
+| `tools/IconMaker` | Рисует иконку приложения в `src/MultiSound.App/Assets`: `dotnet run --project tools/IconMaker` |

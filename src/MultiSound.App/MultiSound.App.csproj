@@ -7,6 +7,7 @@
         <ImplicitUsings>disable</ImplicitUsings>
         <RootNamespace>MultiSound.App</RootNamespace>
         <AssemblyName>MultiSound</AssemblyName>
+        <ApplicationIcon>Assets/MultiSound.ico</ApplicationIcon>
     </PropertyGroup>
     <!-- Only for dotnet publish: the tests reference this project, and a self-contained exe cannot be referenced. -->
     <PropertyGroup Condition="'$(_IsPublishing)' == 'true'">
@@ -16,6 +17,10 @@
         <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
         <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
     </PropertyGroup>
+    <ItemGroup>
+        <Resource Include="Assets/MultiSound.ico" />
+        <None Remove="Assets/MultiSound.png" />
+    </ItemGroup>
     <ItemGroup>
         <PackageReference Include="Alexpivo394.ToadDesign" Version="1.0.0" />
         <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.0" />

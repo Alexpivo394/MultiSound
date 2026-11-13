@@ -2,7 +2,6 @@ using System;
 using System.ComponentModel;
 using System.Windows.Forms;
 using MultiSound.App.ViewModels;
-using ToadDesign;
 
 namespace MultiSound.App.Tray;
 
@@ -19,7 +18,9 @@ internal sealed class TrayIcon : IDisposable
     public TrayIcon(MainViewModel viewModel, Action show, Action exit)
     {
         _viewModel = viewModel;
-        _icon = IconRenderer.Render(Symbol.Headphones, 32);
+        // The small size (16 px at 100 % scale, more at higher DPI) is what the notification area shows.
+        using (var stream = System.Windows.Application.GetResourceStream(new Uri("pack://application:,,,/Assets/MultiSound.ico")).Stream)
+            _icon = new System.Drawing.Icon(stream, SystemInformation.SmallIconSize);
 
         _menu = new TrayMenu(viewModel, show, exit);
 
@@ -49,7 +50,7 @@ internal sealed class TrayIcon : IDisposable
         _menu.Close();
         _notifyIcon.Visible = false;
         _notifyIcon.Dispose();
-        IconRenderer.Destroy(_icon);
+        _icon.Dispose();
     }
 
     private void OnViewModelChanged(object? sender, PropertyChangedEventArgs e)

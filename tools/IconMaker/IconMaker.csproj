@@ -1,0 +1,8 @@
+<Project Sdk="Microsoft.NET.Sdk">
+    <!-- Draws the app icon into src/MultiSound.App/Assets (MultiSound.ico, MultiSound.png). Run it with dotnet run. -->
+    <PropertyGroup>
+        <OutputType>Exe</OutputType>
+        <UseWPF>true</UseWPF>
+        <IsPackable>false</IsPackable>
+    </PropertyGroup>
+</Project>
