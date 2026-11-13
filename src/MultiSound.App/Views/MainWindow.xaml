@@ -1,0 +1,117 @@
+<toad:ToadWindow x:Class="MultiSound.App.Views.MainWindow"
+                 xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                 xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                 xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+                 xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+                 xmlns:toad="urn:toaddesign"
+                 xmlns:sys="clr-namespace:System;assembly=System.Runtime"
+                 xmlns:views="clr-namespace:MultiSound.App.Views"
+                 xmlns:vm="clr-namespace:MultiSound.App.ViewModels"
+                 mc:Ignorable="d"
+                 d:DataContext="{d:DesignInstance vm:MainViewModel}"
+                 Title="MultiSound" TitleIcon="Headphones" Fill="Background"
+                 Width="560" Height="660" MinWidth="460" MinHeight="420"
+                 WindowStartupLocation="CenterScreen">
+    <toad:ToadWindow.Resources>
+        <views:BoolToVisibilityConverter x:Key="Visible" />
+        <views:BoolToVisibilityConverter x:Key="Hidden" Invert="True" />
+        <views:NotNullConverter x:Key="NotNull" />
+        <views:DeviceKindToSymbolConverter x:Key="KindSymbol" />
+        <views:DeviceKindToTextConverter x:Key="KindText" />
+        <sys:Int32 x:Key="Minus10">-10</sys:Int32>
+        <sys:Int32 x:Key="Plus10">10</sys:Int32>
+    </toad:ToadWindow.Resources>
+
+    <DockPanel Margin="16,8,16,16">
+        <DockPanel DockPanel.Dock="Top" Margin="0,0,0,12" LastChildFill="False">
+            <toad:Button DockPanel.Dock="Left" Variant="Filled" Icon="PlayerPlay" Content="Запустить"
+                         Command="{Binding ToggleRunCommand}"
+                         Visibility="{Binding IsRunning, Converter={StaticResource Hidden}}" />
+            <toad:Button DockPanel.Dock="Left" Variant="Filled" Tone="Danger" Icon="PlayerStop" Content="Остановить"
+                         Command="{Binding ToggleRunCommand}"
+                         Visibility="{Binding IsRunning, Converter={StaticResource Visible}}" />
+            <toad:Switch DockPanel.Dock="Right" VerticalAlignment="Center" Content="Щелчки для подстройки"
+                         IsChecked="{Binding ClicksEnabled}"
+                         ToolTip="Раз в секунду щелчок на всех устройствах: двигайте «Сдвиг», пока щелчки не совпадут" />
+        </DockPanel>
+
+        <toad:Alert DockPanel.Dock="Top" Margin="0,0,0,10" Severity="Warning"
+                    Title="{Binding MasterHint}" IsOpen="{Binding MasterHint, Converter={StaticResource NotNull}, Mode=OneWay}" />
+        <toad:Alert DockPanel.Dock="Top" Margin="0,0,0,10" Severity="Info"
+                    Title="{Binding BluetoothLoadHint}" IsOpen="{Binding BluetoothLoadHint, Converter={StaticResource NotNull}, Mode=OneWay}" />
+
+        <ScrollViewer VerticalScrollBarVisibility="Auto">
+            <ItemsControl ItemsSource="{Binding Devices}">
+                <ItemsControl.ItemContainerStyle>
+                    <Style TargetType="ContentPresenter">
+                        <Setter Property="Visibility" Value="{Binding IsPresent, Converter={StaticResource Visible}}" />
+                    </Style>
+                </ItemsControl.ItemContainerStyle>
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate DataType="{x:Type vm:DeviceViewModel}">
+                        <toad:Card Margin="0,0,0,10"
+                                   Icon="{Binding Kind, Converter={StaticResource KindSymbol}}"
+                                   Header="{Binding Name}"
+                                   Description="{Binding Kind, Converter={StaticResource KindText}}">
+                            <toad:Card.TrailingContent>
+                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                    <toad:Badge Content="Основное" VerticalAlignment="Center"
+                                                Visibility="{Binding IsMaster, Converter={StaticResource Visible}}" />
+                                    <toad:Button Variant="Subtle" Icon="Star" Content="Сделать основным" Margin="0,0,8,0"
+                                                 ToolTip="Сделать устройством Windows по умолчанию"
+                                                 Command="{Binding MakeMasterCommand}"
+                                                 Visibility="{Binding IsCopy, Converter={StaticResource Visible}}" />
+                                    <toad:Switch IsChecked="{Binding IsEnabled}" VerticalAlignment="Center"
+                                                 ToolTip="Выводить звук на это устройство"
+                                                 Visibility="{Binding IsCopy, Converter={StaticResource Visible}}" />
+                                </StackPanel>
+                            </toad:Card.TrailingContent>
+
+                            <StackPanel Margin="0,8,0,0">
+                                <TextBlock Text="Громкость: системная" Foreground="{DynamicResource Toad.Brush.TextDimmed}"
+                                           Visibility="{Binding IsMaster, Converter={StaticResource Visible}}" />
+
+                                <Grid Visibility="{Binding IsCopy, Converter={StaticResource Visible}}"
+                                      IsEnabled="{Binding IsEnabled}">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="80" />
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="64" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="Auto" />
+                                    </Grid.RowDefinitions>
+
+                                    <TextBlock Grid.Row="0" Grid.Column="0" Text="Громкость" VerticalAlignment="Center" />
+                                    <Slider Grid.Row="0" Grid.Column="1" Minimum="0" Maximum="100" TickFrequency="1"
+                                            IsSnapToTickEnabled="True" VerticalAlignment="Center"
+                                            Value="{Binding Volume}" />
+                                    <TextBlock Grid.Row="0" Grid.Column="2" VerticalAlignment="Center" TextAlignment="Right"
+                                               Text="{Binding Volume, StringFormat={}{0} %}" />
+
+                                    <TextBlock Grid.Row="1" Grid.Column="0" Text="Сдвиг" VerticalAlignment="Center" Margin="0,8,0,0" />
+                                    <Slider Grid.Row="1" Grid.Column="1" Minimum="0" Maximum="500" TickFrequency="1"
+                                            IsSnapToTickEnabled="True" VerticalAlignment="Center" Margin="0,8,0,0"
+                                            Value="{Binding OffsetMs}" />
+                                    <TextBlock Grid.Row="1" Grid.Column="2" VerticalAlignment="Center" TextAlignment="Right" Margin="0,8,0,0"
+                                               Text="{Binding OffsetMs, StringFormat={}{0} мс}" />
+                                    <StackPanel Grid.Row="1" Grid.Column="3" Orientation="Horizontal" Margin="8,8,0,0">
+                                        <toad:Button Variant="Subtle" Content="−10" ToolTip="Раньше на 10 мс"
+                                                     Command="{Binding NudgeOffsetCommand}" CommandParameter="{StaticResource Minus10}" />
+                                        <toad:Button Variant="Subtle" Content="+10" ToolTip="Позже на 10 мс" Margin="4,0,0,0"
+                                                     Command="{Binding NudgeOffsetCommand}" CommandParameter="{StaticResource Plus10}" />
+                                    </StackPanel>
+                                </Grid>
+
+                                <toad:Alert Margin="0,10,0,0" Severity="Error" Title="{Binding Error}"
+                                            IsOpen="{Binding Error, Converter={StaticResource NotNull}, Mode=OneWay}" />
+                            </StackPanel>
+                        </toad:Card>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+        </ScrollViewer>
+    </DockPanel>
+</toad:ToadWindow>
