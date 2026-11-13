@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <OutputType>WinExe</OutputType>
+        <UseWPF>true</UseWPF>
+        <UseWindowsForms>true</UseWindowsForms>
+        <!-- WPF and WinForms share type names (Application, Button); keep usings explicit. -->
+        <ImplicitUsings>disable</ImplicitUsings>
+        <RootNamespace>MultiSound.App</RootNamespace>
+    </PropertyGroup>
+    <ItemGroup>
+        <PackageReference Include="Alexpivo394.ToadDesign" Version="1.0.0" />
+        <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.0" />
+    </ItemGroup>
+    <ItemGroup>
+        <ProjectReference Include="..\MultiSound.Audio\MultiSound.Audio.csproj" />
+    </ItemGroup>
+    <ItemGroup>
+        <InternalsVisibleTo Include="MultiSound.Tests" />
+    </ItemGroup>
+</Project>

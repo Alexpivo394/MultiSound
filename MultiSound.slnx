@@ -1,6 +1,7 @@
 <Solution>
   <Folder Name="/src/">
     <Project Path="src/MultiSound.Audio/MultiSound.Audio.csproj" />
+    <Project Path="src/MultiSound.App/MultiSound.App.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/MultiSound.Tests/MultiSound.Tests.csproj" />

@@ -2,11 +2,14 @@
     <PropertyGroup>
         <OutputType>Exe</OutputType>
         <IsPackable>false</IsPackable>
+        <!-- References the WPF app project for its settings and view models. -->
+        <UseWPF>true</UseWPF>
     </PropertyGroup>
     <ItemGroup>
         <PackageReference Include="TUnit" Version="1.72.10" />
     </ItemGroup>
     <ItemGroup>
         <ProjectReference Include="..\..\src\MultiSound.Audio\MultiSound.Audio.csproj" />
+        <ProjectReference Include="..\..\src\MultiSound.App\MultiSound.App.csproj" />
     </ItemGroup>
 </Project>
