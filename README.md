@@ -12,6 +12,7 @@
 <p align="center">
   <a href="https://github.com/Alexpivo394/MultiSound/releases/latest"><img src="https://img.shields.io/github/v/release/Alexpivo394/MultiSound?label=%D0%B2%D0%B5%D1%80%D1%81%D0%B8%D1%8F&color=3fb950" alt="Последняя версия"></a>
   <a href="https://github.com/Alexpivo394/MultiSound/actions/workflows/Build.yml"><img src="https://img.shields.io/github/actions/workflow/status/Alexpivo394/MultiSound/Build.yml?label=%D1%81%D0%B1%D0%BE%D1%80%D0%BA%D0%B0" alt="Сборка"></a>
+  <a href="LICENSE.md"><img src="https://img.shields.io/badge/%D0%BB%D0%B8%D1%86%D0%B5%D0%BD%D0%B7%D0%B8%D1%8F-MIT-blue" alt="Лицензия MIT"></a>
 </p>
 
 <p align="center">
@@ -81,3 +82,7 @@ dotnet publish src/MultiSound.App -c Release -o out
 | `src/MultiSound.App` | Окно на [ToadDesign](https://github.com/Alexpivo394/ToadDesign) и значок в трее |
 | `tests/MultiSound.Tests` | Тесты на TUnit; проверки на реальных устройствах помечены `[Explicit]` |
 | `tools/IconMaker` | Рисует иконку приложения в `src/MultiSound.App/Assets`: `dotnet run --project tools/IconMaker` |
+
+## Лицензия
+
+[MIT](LICENSE.md)
